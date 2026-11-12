@@ -1,6 +1,8 @@
 package com.example.musicplayerwidget
 
+import android.annotation.SuppressLint
 import android.content.Context
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -31,6 +33,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.text.TextAlign
 import androidx.glance.unit.ColorProvider
+import com.example.musicplayerwidget.data.model.Song
 import com.example.musicplayerwidget.data.repository.MusicPlayerStateRepository
 import com.example.musicplayerwidget.data.repository.SongRepository
 
@@ -48,6 +51,7 @@ object MusicKeys {
 class MusicPlayerGlanceWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
+    @SuppressLint("RestrictedApi")
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
             val prefs = currentState<Preferences>()
@@ -56,80 +60,94 @@ class MusicPlayerGlanceWidget : GlanceAppWidget() {
 
             val songs = SongRepository.getAllSongs()
             val song = songs.getOrElse(currentIndex) { songs[0] }
-            val coverResId = song.coverResId
 
-            GlanceTheme {
-                Box(
-                    modifier = GlanceModifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .background(ColorProvider(androidx.compose.ui.graphics.Color(0xFF222222)))
-                        .padding(12.dp)
-                        .clickable(actionStartActivity<MainActivity>()),
-                    contentAlignment = Alignment.Center
+            MusicWidgetContent(song = song, isPlaying = isPlaying)
+        }
+    }
+
+    override suspend fun providePreview(context: Context, widgetCategory: Int) {
+        provideContent {
+            val sampleSong = SongRepository.getAllSongs()[0]
+            MusicWidgetContent(song = sampleSong, isPlaying = true)
+        }
+    }
+}
+
+/**
+ * Reusable Glance Composable für das Widget-Layout.
+ */
+@Composable
+fun MusicWidgetContent(song: Song, isPlaying: Boolean) {
+    GlanceTheme {
+        Box(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(100.dp)
+                .background(androidx.compose.ui.graphics.Color(0xFF222222))
+                .padding(12.dp)
+                .clickable(actionStartActivity<MainActivity>()),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    provider = ImageProvider(song.coverResId),
+                    contentDescription = "Album Art",
+                    modifier = GlanceModifier.size(64.dp)
+                )
+                Spacer(modifier = GlanceModifier.width(16.dp))
+                Column(
+                    modifier = GlanceModifier.defaultWeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Text(
+                        text = song.title,
+                        style = TextStyle(
+                            color = ColorProvider(android.R.color.white),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    )
+                    Text(
+                        text = song.artist,
+                        style = TextStyle(
+                            color = ColorProvider(android.R.color.white),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    )
+                    Spacer(modifier = GlanceModifier.height(6.dp))
                     Row(
-                        modifier = GlanceModifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Image(
-                            provider = ImageProvider(coverResId),
-                            contentDescription = "Album Art",
-                            modifier = GlanceModifier.size(64.dp)
+                            provider = ImageProvider(android.R.drawable.ic_media_previous),
+                            contentDescription = "Previous",
+                            modifier = GlanceModifier
+                                .size(28.dp)
+                                .clickable(actionRunCallback<PrevActionCallback>())
                         )
                         Spacer(modifier = GlanceModifier.width(16.dp))
-                        Column(
-                            modifier = GlanceModifier.defaultWeight(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = song.title,
-                                style = TextStyle(
-                                    color = ColorProvider(androidx.compose.ui.graphics.Color.White),
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center
-                                )
-                            )
-                            Text(
-                                text = song.artist,
-                                style = TextStyle(
-                                    color = ColorProvider(androidx.compose.ui.graphics.Color.LightGray),
-                                    fontSize = 13.sp,
-                                    textAlign = TextAlign.Center
-                                )
-                            )
-                            Spacer(modifier = GlanceModifier.height(6.dp))
-                            Row(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Image(
-                                    provider = ImageProvider(android.R.drawable.ic_media_previous),
-                                    contentDescription = "Previous",
-                                    modifier = GlanceModifier
-                                        .size(28.dp)
-                                        .clickable(actionRunCallback<PrevActionCallback>())
-                                )
-                                Spacer(modifier = GlanceModifier.width(16.dp))
-                                Image(
-                                    provider = ImageProvider(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play),
-                                    contentDescription = "Play/Pause",
-                                    modifier = GlanceModifier
-                                        .size(28.dp)
-                                        .clickable(actionRunCallback<PlayPauseActionCallback>())
-                                )
-                                Spacer(modifier = GlanceModifier.width(16.dp))
-                                Image(
-                                    provider = ImageProvider(android.R.drawable.ic_media_next),
-                                    contentDescription = "Next",
-                                    modifier = GlanceModifier
-                                        .size(28.dp)
-                                        .clickable(actionRunCallback<NextActionCallback>())
-                                )
-                            }
-                        }
+                        Image(
+                            provider = ImageProvider(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play),
+                            contentDescription = "Play/Pause",
+                            modifier = GlanceModifier
+                                .size(28.dp)
+                                .clickable(actionRunCallback<PlayPauseActionCallback>())
+                        )
+                        Spacer(modifier = GlanceModifier.width(16.dp))
+                        Image(
+                            provider = ImageProvider(android.R.drawable.ic_media_next),
+                            contentDescription = "Next",
+                            modifier = GlanceModifier
+                                .size(28.dp)
+                                .clickable(actionRunCallback<NextActionCallback>())
+                        )
                     }
                 }
             }
